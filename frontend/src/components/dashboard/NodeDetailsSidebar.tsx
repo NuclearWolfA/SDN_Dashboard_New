@@ -1,4 +1,4 @@
-import { useNodes } from "@/hooks/useNodes";
+import { useNodesContext } from "@/contexts/NodesContext";
 import { Activity, Wifi, WifiOff, AlertTriangle, Radio, Loader2 } from "lucide-react";
 import '@/styles/components/NodeDetailsSidebar.css';
 import { NodeDisplayData } from "@/types/nodes";
@@ -17,7 +17,7 @@ interface Props {
 }
 
 export default function NodeDetailsSidebar({ selectedNodeId, onSelectNode }: Props) {
-  const { nodes, loading, error } = useNodes();
+  const { nodes, loading, error } = useNodesContext();
   const selected = nodes.find(n => n.id === selectedNodeId);
 
   return (

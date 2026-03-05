@@ -1,4 +1,4 @@
-import { useNodes } from "@/hooks/useNodes";
+import { useNodesContext } from "@/contexts/NodesContext";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Loader2 } from "lucide-react";
 import '@/styles/components/ExtendedNodeView.css';
@@ -9,7 +9,7 @@ interface Props {
 }
 
 export default function ExtendedNodeView({ selectedNodeId, onSelectNode }: Props) {
-  const { nodes, loading, error } = useNodes();
+  const { nodes, loading, error } = useNodesContext();
 
   return (
     <div className="h-full w-full rounded-lg border border-border overflow-hidden">

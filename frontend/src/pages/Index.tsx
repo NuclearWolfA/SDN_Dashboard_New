@@ -10,7 +10,7 @@ import ExtendedNodeView from "@/components/dashboard/ExtendedNodeView";
 import MessagingWindow from "@/components/dashboard/MessagingWindow";
 import RouteAnalysis from "@/components/dashboard/RouteAnalysis";
 import OfflineMapView from "@/components/dashboard/OfflineMapView";
-import { useNodes } from "@/hooks/useNodes";
+import { useNodesContext } from "@/contexts/NodesContext";
 
 const tabs = [
   { value: "offline-map", label: "Offline Map", icon: MapPin },
@@ -24,7 +24,7 @@ const tabs = [
 const Index = () => {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const navigate = useNavigate();
-  const { nodes } = useNodes();
+  const { nodes } = useNodesContext();
 
   // Check if COM port is selected, redirect to init screen if not
   useEffect(() => {
