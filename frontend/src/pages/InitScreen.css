@@ -146,6 +146,12 @@
   color: white;
 }
 
+.port-card.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 .port-icon-wrapper {
   position: relative;
   display: inline-block;
