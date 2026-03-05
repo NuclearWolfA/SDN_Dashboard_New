@@ -58,18 +58,18 @@ def on_receive(packet, interface):
                 print("  Type: Route Update")
                 print(f"  Reporter: {hex(packet.get('from'))}")
                 ru = sdn_msg.route_update
-                source = hex(packet.get('from'))
-                destination = hex(ru.destination)
-                next_hop = hex(ru.next_hop)
+                reporter = hex(packet.get('from'))
+                destination = hex(ru.destination) if isinstance(ru.destination, int) else ru.destination.hex()
+                next_hop = ru.next_hop if isinstance(ru.next_hop, int) else int.from_bytes(ru.next_hop, 'big')
                 hop_count = ru.hop_count
                 timestamp = ru.timestamp
                 dest_seq_num = ru.dest_seq_num
-                # print(f"  Destination: {hex(ru.destination)}")
+                # print(f"  Destination: {hex(ru.destination)}") 
                 # print(f"  Next Hop: {hex(ru.next_hop)}")
                 # print(f"  Hop Count: {ru.hop_count}")
                 # print(f"  Dest Seq Num: {ru.dest_seq_num}")
                 # print(f"  Timestamp: {ru.timestamp}")
-                handle_SDN_route_update(source, destination, hop_count, next_hop, timestamp, dest_seq_num, interface.app)
+                handle_SDN_route_update(reporter, destination, hop_count, next_hop, timestamp, dest_seq_num, interface.app)
             elif sdn_msg.HasField("route_command"):
                 print("  Type: Route Command")
                 print(f"  Reporter: {hex(packet.get('from'))}")
