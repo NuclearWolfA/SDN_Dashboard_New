@@ -138,11 +138,16 @@ def on_receive(packet, interface):
             print(f"  Raw payload length: {len(payload)} bytes")
     
     elif decoded.get("portnum") == "TEXT_MESSAGE_APP":
-        source_hex = hex(packet.get("from"))
-        destination_hex = hex(packet.get("to"))
-        # Convert hex to bytes for database (strip '0x' prefix)
-        source_bytes = bytes.fromhex(source_hex[2:])
-        destination_bytes = bytes.fromhex(destination_hex[2:])
+        source_int = packet.get("from")
+        destination_int = packet.get("to")
+
+        # Convert integers to bytes for database (4 bytes, big-endian)
+        source_bytes = source_int.to_bytes(4, byteorder='big')
+        destination_bytes = destination_int.to_bytes(4, byteorder='big')
+
+        # Convert to hex strings for display/conversation IDs
+        source_hex = hex(source_int)
+        destination_hex = hex(destination_int)
         text = decoded.get("text")  # Remove trailing comma - it was creating a tuple!
         rssi = packet.get("rxRssi")
         id = packet.get("id")
