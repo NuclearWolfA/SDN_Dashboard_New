@@ -13,6 +13,7 @@ const InitScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedPort, setSelectedPort] = useState<string | null>(null);
+  const [connecting, setConnecting] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -48,15 +49,38 @@ const InitScreen: React.FC = () => {
     }
   };
 
-  const handlePortSelect = (port: string) => {
+  const handlePortSelect = async (port: string) => {
     setSelectedPort(port);
-    // Store selected port in localStorage or context
-    localStorage.setItem('selectedComPort', port);
+    setConnecting(true);
+    setError(null);
     
-    // Navigate to dashboard page after short delay for visual feedback
-    setTimeout(() => {
-      navigate('/dashboard');
-    }, 1000);
+    try {
+      // Store selected port in localStorage
+      localStorage.setItem('selectedComPort', port);
+      
+      // Start the Meshtastic client with the selected port
+      const response = await fetch(`http://localhost:8000/api/meshtastic/start-client?devPath=${port}`, {
+        method: 'POST'
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Failed to start Meshtastic client' }));
+        throw new Error(errorData.detail || 'Failed to start Meshtastic client');
+      }
+      
+      console.log('✅ Meshtastic client started on', port);
+      
+      // Navigate to dashboard after successful connection
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 500);
+      
+    } catch (err) {
+      console.error('Error starting Meshtastic client:', err);
+      setError(err instanceof Error ? err.message : 'Failed to start Meshtastic client');
+      setSelectedPort(null);
+      setConnecting(false);
+    }
   };
 
   return (
@@ -81,6 +105,16 @@ const InitScreen: React.FC = () => {
           >
             <FaSpinner className="spinner" />
             <p>Scanning for available COM ports...</p>
+          </motion.div>
+        ) : connecting ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="loading-container"
+          >
+            <FaSpinner className="spinner" />
+            <p>Connecting to {selectedPort}...</p>
+            <p className="text-sm text-muted-foreground mt-2">Starting Meshtastic client</p>
           </motion.div>
         ) : error ? (
           <motion.div
@@ -119,8 +153,8 @@ const InitScreen: React.FC = () => {
                 transition={{ delay: index * 0.1 }}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className={`port-card ${selectedPort === port ? 'selected' : ''}`}
-                onClick={() => handlePortSelect(port)}
+                className={`port-card ${selectedPort === port ? 'selected' : ''} ${connecting ? 'disabled' : ''}`}
+                onClick={() => !connecting && handlePortSelect(port)}
               >
                 <div className="port-icon-wrapper">
                   <FaUsb className="port-icon" />
