@@ -12,6 +12,22 @@ def _path_to_storage(path_nodes):
     return ",".join(node.hex() for node in path_nodes)
 
 
+def _pick_furthest_reporter(latest_routes_by_reporter):
+    furthest_reporter = None
+    furthest_hop_count = -1
+
+    for route in latest_routes_by_reporter.values():
+        if route.reporter is None:
+            continue
+
+        hop_count = route.hop_count if route.hop_count is not None else -1
+        if hop_count > furthest_hop_count:
+            furthest_hop_count = hop_count
+            furthest_reporter = route.reporter
+
+    return furthest_reporter
+
+
 def _build_full_paths_for_destination(routes, destination):
     latest_by_reporter = {}
     for route in routes:
@@ -25,40 +41,43 @@ def _build_full_paths_for_destination(routes, destination):
     }
 
     built_paths = []
-    for source in next_hop_map.keys():
-        seen = {source}
-        path = [source]
-        current = source
-        is_complete = False
+    source = _pick_furthest_reporter(latest_by_reporter)
+    if source is None:
+        return built_paths
 
-        while True:
-            if current == destination:
-                is_complete = True
-                break
+    seen = {source}
+    path = [source]
+    current = source
+    is_complete = False
 
-            nxt = next_hop_map.get(current)
-            if not nxt:
-                break
+    while True:
+        if current == destination:
+            is_complete = True
+            break
 
-            path.append(nxt)
-            if nxt == destination:
-                is_complete = True
-                break
+        nxt = next_hop_map.get(current)
+        if not nxt:
+            break
 
-            if nxt in seen:
-                break
+        path.append(nxt)
+        if nxt == destination:
+            is_complete = True
+            break
 
-            seen.add(nxt)
-            current = nxt
+        if nxt in seen:
+            break
 
-        built_paths.append(
-            {
-                "source": source,
-                "path_nodes": path,
-                "hop_count": max(len(path) - 1, 0),
-                "is_complete": is_complete,
-            }
-        )
+        seen.add(nxt)
+        current = nxt
+
+    built_paths.append(
+        {
+            "source": source,
+            "path_nodes": path,
+            "hop_count": max(len(path) - 1, 0),
+            "is_complete": is_complete,
+        }
+    )
 
     return built_paths
 
