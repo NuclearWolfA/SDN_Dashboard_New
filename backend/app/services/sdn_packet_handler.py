@@ -1,5 +1,110 @@
 from app.core.database import SessionLocal
-from app.models import Route
+from app.models import FullRoute, Route
+
+
+def _bytes_to_hex(node_id):
+    if node_id is None:
+        return None
+    return node_id.hex()
+
+
+def _path_to_storage(path_nodes):
+    return ",".join(node.hex() for node in path_nodes)
+
+
+def _build_full_paths_for_destination(routes, destination):
+    latest_by_reporter = {}
+    for route in routes:
+        if route.reporter not in latest_by_reporter:
+            latest_by_reporter[route.reporter] = route
+
+    next_hop_map = {
+        route.reporter: route.next_hop
+        for route in latest_by_reporter.values()
+        if route.reporter and route.next_hop
+    }
+
+    built_paths = []
+    for source in next_hop_map.keys():
+        seen = {source}
+        path = [source]
+        current = source
+        is_complete = False
+
+        while True:
+            if current == destination:
+                is_complete = True
+                break
+
+            nxt = next_hop_map.get(current)
+            if not nxt:
+                break
+
+            path.append(nxt)
+            if nxt == destination:
+                is_complete = True
+                break
+
+            if nxt in seen:
+                break
+
+            seen.add(nxt)
+            current = nxt
+
+        built_paths.append(
+            {
+                "source": source,
+                "path_nodes": path,
+                "hop_count": max(len(path) - 1, 0),
+                "is_complete": is_complete,
+            }
+        )
+
+    return built_paths
+
+
+def rebuild_full_routes(destination, dest_seq_num, timestamp, db):
+    routes = (
+        db.query(Route)
+        .filter(Route.destination == destination, Route.dest_seq_num == dest_seq_num)
+        .order_by(Route.route_id.desc())
+        .all()
+    )
+
+    if not routes:
+        return
+
+    built_paths = _build_full_paths_for_destination(routes, destination)
+
+    for built in built_paths:
+        existing = (
+            db.query(FullRoute)
+            .filter(
+                FullRoute.source == built["source"],
+                FullRoute.destination == destination,
+                FullRoute.dest_seq_num == dest_seq_num,
+            )
+            .first()
+        )
+
+        path_storage = _path_to_storage(built["path_nodes"])
+        if existing:
+            existing.path = path_storage
+            existing.hop_count = built["hop_count"]
+            existing.is_complete = built["is_complete"]
+            existing.updated_at = str(timestamp)
+        else:
+            db.add(
+                FullRoute(
+                    source=built["source"],
+                    destination=destination,
+                    dest_seq_num=dest_seq_num,
+                    path=path_storage,
+                    hop_count=built["hop_count"],
+                    is_complete=built["is_complete"],
+                    updated_at=str(timestamp),
+                )
+            )
     
 def handle_SDN_route_update(reporter, destination, hop_count, next_hop, timestamp, dest_seq_num, app):
     """Function to handle incoming SDN route updates and broadcast them to connected clients"""
@@ -25,7 +130,7 @@ def handle_SDN_route_update(reporter, destination, hop_count, next_hop, timestam
     next_hop_node = find_node_by_last_byte(next_hop_last_byte, db)
     
     if next_hop_node is not None:
-        route_update = {
+        route_update_db = {
             "reporter": reporter_node.id,
             "destination": destination_node.id,
             "hop_count": hop_count,
@@ -33,13 +138,25 @@ def handle_SDN_route_update(reporter, destination, hop_count, next_hop, timestam
             "timestamp": str(timestamp),
             "dest_seq_num": dest_seq_num
         }
-        route = Route(**route_update)
+        route = Route(**route_update_db)
         db.add(route)
+        db.flush()
+        rebuild_full_routes(destination_node.id, dest_seq_num, timestamp, db)
         db.commit()
         db.refresh(route)
+
+        route_update_ws = {
+            "reporter": _bytes_to_hex(reporter_node.id),
+            "destination": _bytes_to_hex(destination_node.id),
+            "hop_count": hop_count,
+            "next_hop": _bytes_to_hex(next_hop_node.id),
+            "timestamp": str(timestamp),
+            "dest_seq_num": dest_seq_num,
+        }
+
         db.close()
-        broadcaster.publish(route_update)
-        print(f"Published SDN route update: {route_update}")
+        broadcaster.publish(route_update_ws)
+        print(f"Published SDN route update: {route_update_ws}")
     else:
         print(f"Warning: Could not find next_hop node with last_byte={next_hop_last_byte.hex()}. Route update skipped.")
         db.close()
@@ -69,4 +186,6 @@ def find_node_by_last_byte(last_byte, db):
     """
     from app.models import Node
     node = db.query(Node).filter(Node.last_byte == last_byte).first()
-    return node 
+    return node
+
+ 
