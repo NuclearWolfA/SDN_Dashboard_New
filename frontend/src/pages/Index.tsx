@@ -25,7 +25,7 @@ const tabs = [
 const Index = () => {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const navigate = useNavigate();
-  const { nodes } = useNodesContext();
+  const { nodes, selfNodeId } = useNodesContext();
 
   // Check if COM port is selected, redirect to init screen if not
   useEffect(() => {
@@ -35,12 +35,25 @@ const Index = () => {
     }
   }, [navigate]);
 
-  // Set the first node as selected when nodes are loaded
+  // Auto-select the connected node (selfNodeId) on initial load only
   useEffect(() => {
-    if (nodes.length > 0 && !selectedNodeId) {
-      setSelectedNodeId(nodes[0].id);
+    // Only set default if nothing is selected yet
+    if (!selectedNodeId && nodes.length > 0) {
+      if (selfNodeId) {
+        // Try to select self node first
+        const selfNode = nodes.find(n => n.id.slice(-7) === selfNodeId.slice(-7));
+        if (selfNode) {
+          setSelectedNodeId(selfNode.id);
+        } else {
+          // Fallback to first node if self not found
+          setSelectedNodeId(nodes[0].id);
+        }
+      } else {
+        // No selfNodeId, select first node
+        setSelectedNodeId(nodes[0].id);
+      }
     }
-  }, [nodes, selectedNodeId]);
+  }, [nodes, selfNodeId, selectedNodeId]);
 
   return (
     <MessagesProvider>

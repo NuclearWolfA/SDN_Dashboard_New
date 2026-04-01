@@ -17,8 +17,11 @@ interface Props {
 }
 
 export default function NodeDetailsSidebar({ selectedNodeId, onSelectNode }: Props) {
-  const { nodes, loading, error } = useNodesContext();
-  const selected = nodes.find(n => n.id === selectedNodeId);
+  const { nodes, loading, error, selfNodeId } = useNodesContext();
+  
+  // Find selected node, or default to self node if nothing selected
+  const selected = nodes.find(n => n.id === selectedNodeId) || 
+                   (selfNodeId ? nodes.find(n => n.id.slice(-7) === selfNodeId.slice(-7)) : null);
 
   return (
     <aside className="w-72 shrink-0 border-r border-border bg-sidebar flex flex-col h-full overflow-hidden">
@@ -48,24 +51,32 @@ export default function NodeDetailsSidebar({ selectedNodeId, onSelectNode }: Pro
             No nodes found
           </div>
         ) : (
-          nodes.map(node => (
-            <button
-              key={node.id}
-              onClick={() => onSelectNode(node.id)}
-              className={`w-full text-left px-3 py-2 rounded-md transition-all text-xs font-mono
-                ${selectedNodeId === node.id
-                  ? "bg-primary/10 border border-primary/30 glow-green"
-                  : "hover:bg-muted/50 border border-transparent"
-                }`}
-            >
-              <div className="flex items-center gap-2">
-                <Radio className="h-4 w-4" />
-                <span className="text-card-foreground font-medium truncate">{node.name}</span>
-                <span className="ml-auto">{statusIcon(node.status)}</span>
-              </div>
-              <div className="text-muted-foreground mt-1 truncate text-[10px]">{node.id}</div>
-            </button>
-          ))
+          nodes.map(node => {
+            const isSelf = selfNodeId && node.id.slice(-7) === selfNodeId.slice(-7);
+            return (
+              <button
+                key={node.id}
+                onClick={() => onSelectNode(node.id)}
+                className={`w-full text-left px-3 py-2 rounded-md transition-all text-xs font-mono
+                  ${selectedNodeId === node.id
+                    ? "bg-primary/10 border border-primary/30 glow-green"
+                    : "hover:bg-muted/50 border border-transparent"
+                  }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Radio className={`h-4 w-4 ${isSelf ? 'text-blue-500' : ''}`} />
+                  <span className="text-card-foreground font-medium truncate">{node.name}</span>
+                  {isSelf && (
+                    <span className="text-[8px] px-1.5 py-0.5 bg-blue-500/20 text-blue-500 rounded font-bold border border-blue-500/30">
+                      CONNECTED
+                    </span>
+                  )}
+                  <span className="ml-auto">{statusIcon(node.status)}</span>
+                </div>
+                <div className="text-muted-foreground mt-1 truncate text-[10px]">{node.id}</div>
+              </button>
+            );
+          })
         )}
       </div>
 
