@@ -105,9 +105,17 @@ def get_comports():
 def start_client(devPath: Optional[str] = None, app: FastAPI = Depends(get_app)):
     try:
         start_meshtastic_client(app, devPath=devPath)
+        
+        interface = app.state.meshtastic_interface
+        node_id = None
+        
+        if interface and hasattr(interface, 'myInfo') and interface.myInfo:
+            node_id = hex(interface.myInfo.my_node_num)
+        
         return {
-            "nodeId": app.state.meshtastic_interface.myInfo.my_node_num.to_bytes(4, 'big').hex(),
-            "devPath": devPath
+            "status": "Meshtastic client started successfully",
+            "nodeId": node_id,
+            "port": devPath
         }
     except ValueError as e:
         return {"status": "error", "message": str(e)}
