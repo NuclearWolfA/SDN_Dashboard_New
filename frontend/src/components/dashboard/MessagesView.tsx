@@ -5,7 +5,7 @@ import { useMessagesContext } from '@/contexts/MessagesContext';
 import { Message } from '@/types/message';
 
 export default function MessagesView() {
-  const { nodes } = useNodesContext();
+  const { nodes, selfNodeId } = useNodesContext();
   const { messages, loading, error, wsConnected, sendMessage } = useMessagesContext();
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [messageText, setMessageText] = useState('');
@@ -39,6 +39,7 @@ export default function MessagesView() {
       nodeName: string;
       lastMessage: Message | null;
       messages: Message[];
+      status: string;
     }>();
 
     // Create a map of normalized IDs to node info for quick lookup
@@ -48,16 +49,20 @@ export default function MessagesView() {
       nodeMap.set(normalizedId, node);
     });
 
-    // Show all nodes initially, even without messages
-    const normalizedLocalId = normalizeId(localNodeId);
+    // Show all nodes (except self)
+    const normalizedSelfId = normalizeId(selfNodeId);
     nodes.forEach(node => {
       const normalizedNodeId = normalizeId(node.id);
-      if (normalizedNodeId !== normalizedLocalId) { // Don't show local node in list
+      // Include all nodes except the self node (match by last 7 chars)
+      const isSelfNode = normalizedSelfId && normalizedNodeId.slice(-7) === normalizedSelfId.slice(-7);
+      
+      if (!isSelfNode) {
         conversationMap.set(normalizedNodeId, {
           nodeId: node.id, // Keep original format for display
           nodeName: node.name || node.id,
           lastMessage: null,
           messages: [],
+          status: node.status,
         });
       }
     });
@@ -78,14 +83,8 @@ export default function MessagesView() {
       if (normalizedOtherId === normalizedLocalId) return;
 
       if (!conversationMap.has(normalizedOtherId)) {
-        // Node not in list (maybe deleted/new), try to find the node info
-        const nodeInfo = nodeMap.get(normalizedOtherId);
-        conversationMap.set(normalizedOtherId, {
-          nodeId: nodeInfo?.id || otherNodeId,
-          nodeName: nodeInfo?.name || otherNodeId,
-          lastMessage: message,
-          messages: [message],
-        });
+        // Node not in list (maybe deleted/new/offline), skip it
+        return;
       } else {
         const conv = conversationMap.get(normalizedOtherId)!;
         conv.messages.push(message);
