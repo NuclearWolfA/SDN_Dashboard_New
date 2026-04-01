@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Request
 from starlette.concurrency import run_in_threadpool
 
-from app.models.route_table_models import RouteTableRequest, RouteTableResponse
+from backend.app.request_models.route_table_models import RouteTableRequest, RouteTableResponse
 from app.services.route_table_service import get_route_table_serial
 
 router = APIRouter(prefix="/aodv", tags=["AODV Serial"])
