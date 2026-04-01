@@ -79,13 +79,16 @@ const OfflineMapView: React.FC<OfflineMapViewProps> = ({ selectedNodeId, onSelec
   }, [nodes]);
 
   // Calculate map center based on average position of all nodes with GPS
-  const mapCenter: [number, number] = useMemo(() => {
-    const avgLat = nodesWithCoords.reduce((sum, node) => sum + (node.latitude || 0), 0) / nodesWithCoords.length;
-    const avgLon = nodesWithCoords.reduce((sum, node) => sum + (node.longitude || 0), 0) / nodesWithCoords.length;
-    return [avgLat, avgLon];
-  }, [nodesWithCoords]);
+  // const mapCenter: [number, number] = useMemo(() => {
+  //   const avgLat = nodesWithCoords.reduce((sum, node) => sum + (node.latitude || 0), 0) / nodesWithCoords.length;
+  //   const avgLon = nodesWithCoords.reduce((sum, node) => sum + (node.longitude || 0), 0) / nodesWithCoords.length;
+  //   return [avgLat, avgLon];
+  // }, [nodesWithCoords]);
 
-  const defaultZoom = 13;
+  // Always center on Sri Lanka
+  const mapCenter: [number, number] = [6.8731, 80.7718]; // Colombo, Sri Lanka
+
+  const defaultZoom = 8.5;
 
   if (loading && nodes.length === 0) {
     return (
