@@ -11,13 +11,13 @@ LOCAL_MESHTASTIC_DIR = PROJECT_ROOT / "meshtastic"
 if str(LOCAL_MESHTASTIC_DIR) not in sys.path:
     sys.path.insert(0, str(LOCAL_MESHTASTIC_DIR))
 
-import aodv_pb2  # noqa: E402
+import app.generated.aodv_pb2 as aodv_pb2  # noqa: E402
 
 AODV_ROUTING_APP_PORTNUM = 75
 
 
 def get_route_table_serial(
-    port: str,
+    app,
     timeout: int = 10,
     channel_index: int = 0,
     want_ack: bool = False,
@@ -62,7 +62,7 @@ def get_route_table_serial(
         raise RuntimeError("aodv_pb2 has no rt_request. Regenerate proto with route table fields.")
 
     pub.subscribe(on_receive, "meshtastic.receive")
-    iface = SerialInterface(devPath=port)
+    iface = app.state.meshtastic_interface
 
     try:
         node = iface.getMyNodeInfo() or {}

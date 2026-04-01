@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from starlette.concurrency import run_in_threadpool
 
 from app.models.sdn_serial_models import (
@@ -15,11 +15,11 @@ router = APIRouter(prefix="/sdn", tags=["SDN Serial"])
 
 
 @router.post("/route-install/serial", response_model=GenericSendResponse)
-async def route_install_serial(req: RouteInstallRequest):
+async def route_install_serial(req: RouteInstallRequest, request: Request):
     try:
         details = await run_in_threadpool(
             send_route_install_serial,
-            req.port,
+            request.app,
             req.destination,
             req.path,
             req.install_id,
@@ -33,11 +33,11 @@ async def route_install_serial(req: RouteInstallRequest):
 
 
 @router.post("/route-switch/serial", response_model=GenericSendResponse)
-async def route_switch_serial(req: RouteSwitchRequest):
+async def route_switch_serial(req: RouteSwitchRequest, request: Request):
     try:
         details = await run_in_threadpool(
             send_route_switch_serial,
-            req.port,
+            request.app,
             req.target_node,
             req.destination,
             req.next_hop,

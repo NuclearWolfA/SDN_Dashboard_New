@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from starlette.concurrency import run_in_threadpool
 
 from app.models.route_table_models import RouteTableRequest, RouteTableResponse
@@ -8,11 +8,11 @@ router = APIRouter(prefix="/aodv", tags=["AODV Serial"])
 
 
 @router.post("/route-table/serial", response_model=RouteTableResponse)
-async def route_table_serial(req: RouteTableRequest):
+async def route_table_serial(req: RouteTableRequest, request :Request):
     try:
         result = await run_in_threadpool(
             get_route_table_serial,
-            req.port,
+            request.app,
             req.timeout,
             req.channel_index,
             req.want_ack,

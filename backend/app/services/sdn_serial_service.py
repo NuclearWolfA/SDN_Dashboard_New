@@ -2,7 +2,6 @@ import sys
 import time
 from pathlib import Path
 
-from meshtastic.serial_interface import SerialInterface
 # from meshtastic import portnums_pb2
 
 # Add local protobuf module paths (absolute, based on this file location)
@@ -12,10 +11,10 @@ PROTO_DIR = Path(__file__).resolve().parents[1] / "generated"
     
 sys.path.insert(0, str(PROTO_DIR))
 
-import sdn_pb2
-import portnums_pb2
-import aodv_pb2
-import nanopb_pb2
+import app.generated.sdn_pb2 as sdn_pb2  # noqa: E402
+import app.generated.portnums_pb2 as portnums_pb2
+import app.generated.aodv_pb2 as aodv_pb2
+import app.generated.nanopb_pb2 as nanopb_pb2
 
 
 
@@ -33,7 +32,7 @@ def pack_hop_path(hops: list[int]) -> int:
 
 
 def send_route_install_serial(
-    port: str,
+    app,
     destination: int,
     path: list[int],
     install_id: int = 1,
@@ -53,7 +52,7 @@ def send_route_install_serial(
     sdn_msg.route_install.CopyFrom(route_install)
     payload = sdn_msg.SerializeToString()
 
-    iface = SerialInterface(devPath=port)
+    iface = app.state.meshtastic_interface
     try:
         time.sleep(0.4)
         iface.sendData(
@@ -64,7 +63,6 @@ def send_route_install_serial(
             channelIndex=channel_index,
         )
         return {
-            "serial_port": port,
             "start_node": start_node,
             "destination": destination,
             "install_id": route_install.install_id,
@@ -78,7 +76,7 @@ def send_route_install_serial(
 
 
 def send_route_switch_serial(
-    port: str,
+    app,
     target_node: int,
     destination: int,
     next_hop: int,
@@ -96,7 +94,7 @@ def send_route_switch_serial(
     sdn_msg.route_command.CopyFrom(route_cmd)
     payload = sdn_msg.SerializeToString()
 
-    iface = SerialInterface(devPath=port)
+    iface = app.state.meshtastic_interface
     try:
         time.sleep(0.4)
         iface.sendData(
@@ -107,7 +105,6 @@ def send_route_switch_serial(
             channelIndex=channel_index,
         )
         return {
-            "serial_port": port,
             "target_node": target_node,
             "destination": destination,
             "next_hop": next_hop,

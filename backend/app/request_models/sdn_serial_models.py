@@ -2,7 +2,6 @@ from pydantic import BaseModel, Field
 
 
 class RouteInstallRequest(BaseModel):
-    port: str = Field(..., examples=["/dev/ttyUSB0"])
     destination: int = Field(..., description="Destination node number (int)")
     path: list[int] = Field(..., description="Hop list, each 0..255, max 8")
     install_id: int = Field(1, ge=0, le=255)
@@ -12,7 +11,6 @@ class RouteInstallRequest(BaseModel):
 
 
 class RouteSwitchRequest(BaseModel):
-    port: str = Field(..., examples=["/dev/ttyUSB0"])
     target_node: int = Field(..., description="Node that applies route switch")
     destination: int = Field(..., description="Destination node number (int)")
     next_hop: int = Field(..., ge=0, le=255)

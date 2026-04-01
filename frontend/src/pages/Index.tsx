@@ -7,9 +7,11 @@ import NodeDetailsSidebar from "@/components/dashboard/NodeDetailsSidebar";
 import MapView from "@/components/dashboard/MapView";
 import TopologyView from "@/components/dashboard/TopologyView";
 import ExtendedNodeView from "@/components/dashboard/ExtendedNodeView";
-import MessagingWindow from "@/components/dashboard/MessagingWindow";
+import MessagesView from "@/components/dashboard/MessagesView";
 import RouteAnalysis from "@/components/dashboard/RouteAnalysis";
 import OfflineMapView from "@/components/dashboard/OfflineMapView";
+import { useNodesContext } from "@/contexts/NodesContext";
+import { MessagesProvider } from "@/contexts/MessagesContext";
 
 const tabs = [
   { value: "offline-map", label: "Offline Map", icon: MapPin },
@@ -21,8 +23,9 @@ const tabs = [
 ];
 
 const Index = () => {
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>("s1");
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const navigate = useNavigate();
+  const { nodes } = useNodesContext();
 
   // Check if COM port is selected, redirect to init screen if not
   useEffect(() => {
@@ -32,10 +35,18 @@ const Index = () => {
     }
   }, [navigate]);
 
+  // Set the first node as selected when nodes are loaded
+  useEffect(() => {
+    if (nodes.length > 0 && !selectedNodeId) {
+      setSelectedNodeId(nodes[0].id);
+    }
+  }, [nodes, selectedNodeId]);
+
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-background">
-      {/* Persistent SDN Node Sidebar */}
-      <NodeDetailsSidebar selectedNodeId={selectedNodeId} onSelectNode={setSelectedNodeId} />
+    <MessagesProvider>
+      <div className="flex h-screen w-full overflow-hidden bg-background">
+        {/* Persistent SDN Node Sidebar */}
+        <NodeDetailsSidebar selectedNodeId={selectedNodeId} onSelectNode={setSelectedNodeId} />
 
       {/* Main content area */}
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -71,7 +82,7 @@ const Index = () => {
               <ExtendedNodeView selectedNodeId={selectedNodeId} onSelectNode={setSelectedNodeId} />
             </TabsContent>
             <TabsContent value="messages" className="h-full m-0">
-              <MessagingWindow />
+              <MessagesView />
             </TabsContent>
             <TabsContent value="routes" className="h-full m-0">
               <RouteAnalysis />
@@ -80,6 +91,7 @@ const Index = () => {
         </Tabs>
       </div>
     </div>
+    </MessagesProvider>
   );
 };
 
