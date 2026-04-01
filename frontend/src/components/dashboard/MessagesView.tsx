@@ -5,7 +5,7 @@ import { useMessagesContext } from '@/contexts/MessagesContext';
 import { Message } from '@/types/message';
 
 export default function MessagesView() {
-  const { nodes, selfNodeId } = useNodesContext();
+  const { nodes, selfNodeId, selfNodeIdLongName } = useNodesContext();
   const { messages, loading, error, wsConnected, sendMessage } = useMessagesContext();
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [messageText, setMessageText] = useState('');
@@ -25,12 +25,6 @@ export default function MessagesView() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, selectedNodeId]);
-
-  // Detect local node ID from messages where sent_by_me is true
-  const localNodeId = useMemo(() => {
-    const sentMessage = messages.find(msg => msg.sent_by_me === true);
-    return sentMessage?.source_id || null;
-  }, [messages]);
 
   // Get conversations grouped by node
   const conversations = useMemo(() => {
@@ -74,13 +68,10 @@ export default function MessagesView() {
       
       const otherNodeId = message.sent_by_me ? message.destination_id : message.source_id;
       
-      // Skip if it's a message to/from self or null
+      // Skip if null
       if (!otherNodeId) return;
       
       const normalizedOtherId = normalizeId(otherNodeId);
-      const normalizedLocalId = normalizeId(localNodeId);
-      
-      if (normalizedOtherId === normalizedLocalId) return;
 
       if (!conversationMap.has(normalizedOtherId)) {
         // Node not in list (maybe deleted/new/offline), skip it
@@ -106,7 +97,7 @@ export default function MessagesView() {
         return new Date(b.lastMessage.timestamp).getTime() - 
                new Date(a.lastMessage.timestamp).getTime();
       });
-  }, [messages, nodes, localNodeId]);
+  }, [messages, nodes, selfNodeId]);
 
   // Get messages for selected conversation
   const currentMessages = useMemo(() => {
@@ -200,9 +191,9 @@ export default function MessagesView() {
           <div className="font-mono text-xs text-muted-foreground flex items-center gap-2">
             <MessageSquare className="h-4 w-4 text-primary" />
             <span>CONVERSATIONS</span>
-            {localNodeId && (
+            {selfNodeIdLongName && (
               <span className="ml-auto px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-semibold">
-                YOU: {localNodeId}
+                YOU: {selfNodeIdLongName}
               </span>
             )}
           </div>
