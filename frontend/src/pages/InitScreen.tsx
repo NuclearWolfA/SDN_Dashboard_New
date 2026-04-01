@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FaUsb, FaCheckCircle, FaSpinner } from 'react-icons/fa';
+import { useNodesContext } from '@/contexts/NodesContext';
 import './InitScreen.css';
 
 interface ComPort {
@@ -15,6 +16,7 @@ const InitScreen: React.FC = () => {
   const [selectedPort, setSelectedPort] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
   const navigate = useNavigate();
+  const { setSelfNodeId } = useNodesContext();
 
   useEffect(() => {
     fetchComPorts();
@@ -68,7 +70,14 @@ const InitScreen: React.FC = () => {
         throw new Error(errorData.detail || 'Failed to start Meshtastic client');
       }
       
-      console.log('✅ Meshtastic client started on', port);
+      const data = await response.json();
+      console.log('Meshtastic client started on', port);
+      console.log('Active Node ID:', data.nodeId);
+      
+      // Store self node ID via context (which also updates localStorage)
+      if (data.nodeId) {
+        setSelfNodeId(data.nodeId);
+      }
       
       // Navigate to dashboard after successful connection
       setTimeout(() => {
