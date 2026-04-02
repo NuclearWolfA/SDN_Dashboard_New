@@ -315,6 +315,22 @@ def send_text_message_client(interface, destination, text):
             "ack_timestamp": None
         }
         update_message_db(interface, message)  # Add sent message to database immediately
+        
+        # Publish to WebSocket immediately so UI shows the pending message
+        publish_text_to_websocket(interface.app, {
+            "id": sent.id,
+            "source": hex(interface.myInfo.my_node_num),
+            "destination": hex(destination_int),
+            "text": text,
+            "timestamp": time.time(),
+            "conversation": hex(destination_int),
+            "sent_by_me": True,
+            "ack_status": "pending",
+            "ack_timestamp": None,
+            "rssi": None,
+            "channel": None
+        })
+        
         print(f"✓ Sent message to {destination}: {text}")
         return sent.id
     except Exception as e:
