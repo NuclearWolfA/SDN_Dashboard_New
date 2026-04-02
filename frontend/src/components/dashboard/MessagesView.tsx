@@ -250,34 +250,36 @@ export default function MessagesView() {
             </div>
           ) : (
             <>
-              {/* Broadcast Messages */}
-              {broadcastMessages.length > 0 && (
-                <div
-                  onClick={() => setSelectedNodeId('broadcast')}
-                  className={`p-3 border-b border-border cursor-pointer transition-colors hover:bg-accent/50 ${
-                    selectedNodeId === 'broadcast' ? 'bg-accent' : ''
-                  }`}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <Radio className="h-4 w-4 text-orange-500 flex-shrink-0" />
-                      <span className="text-xs font-semibold text-card-foreground truncate">
-                        Broadcast Messages
-                      </span>
-                    </div>
-                    {broadcastMessages.length > 0 && (
-                      <span className="text-[10px] text-muted-foreground ml-2 flex-shrink-0">
-                        {formatLastMessageTime(broadcastMessages[broadcastMessages.length - 1].timestamp)}
-                      </span>
-                    )}
+              {/* Broadcast Messages - Always visible */}
+              <div
+                onClick={() => setSelectedNodeId('broadcast')}
+                className={`p-3 border-b border-border cursor-pointer transition-colors hover:bg-accent/50 ${
+                  selectedNodeId === 'broadcast' ? 'bg-accent' : ''
+                }`}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <Radio className="h-4 w-4 text-orange-500 flex-shrink-0" />
+                    <span className="text-xs font-semibold text-card-foreground truncate">
+                      Broadcast Messages
+                    </span>
                   </div>
                   {broadcastMessages.length > 0 && (
-                    <div className="mt-1 text-[11px] text-muted-foreground truncate ml-6">
-                      {broadcastMessages[broadcastMessages.length - 1].text}
-                    </div>
+                    <span className="text-[10px] text-muted-foreground ml-2 flex-shrink-0">
+                      {formatLastMessageTime(broadcastMessages[broadcastMessages.length - 1].timestamp)}
+                    </span>
                   )}
                 </div>
-              )}
+                {broadcastMessages.length > 0 ? (
+                  <div className="mt-1 text-[11px] text-muted-foreground truncate ml-6">
+                    {broadcastMessages[broadcastMessages.length - 1].text}
+                  </div>
+                ) : (
+                  <div className="mt-1 text-[11px] text-muted-foreground/50 italic ml-6">
+                    No broadcasts yet
+                  </div>
+                )}
+              </div>
 
               {/* Individual Conversations */}
               {conversations.length === 0 && broadcastMessages.length === 0 ? (
