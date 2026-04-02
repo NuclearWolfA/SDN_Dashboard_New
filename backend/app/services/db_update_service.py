@@ -26,7 +26,9 @@ def update_nodes_db(iface):
                 gps_coords = f"{lat},{lon},{alt}"
             
             last_heard = node_data.get('lastHeard')
-            status = 'online' if last_heard else 'offline'
+            uptimeSeconds = device_metrics.get('uptimeSeconds')
+            print(f"[Debug]{node_id}: lastHeard={last_heard}, uptimeSeconds={uptimeSeconds}, userInfo={user_info}, deviceMetrics={device_metrics}, position={position_info}")
+            status = 'online' if last_heard or uptimeSeconds else 'offline'
             
             node_changed = False
             if existing_node:
@@ -73,7 +75,7 @@ def update_nodes_db(iface):
                     "hw_model": node.hw_model,
                     "snr": node.snr,
                     "battery_level": node.battery_level,
-                    "status": node.status,
+                    "status": 'online',
                     "hops_away": node.hops_away,
                     "gps_coordinates": node.gps_coordinates,
                     "role": node.role
