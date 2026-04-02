@@ -9,7 +9,7 @@ export interface Message {
   channel: number | null;
   conversation: string | null;
   sent_by_me: boolean;
-  ack_status: number;
+  ack_status: number | string; // Can be "pending" or numeric status
   ack_timestamp: string | null; // ISO string from backend
 }
 
