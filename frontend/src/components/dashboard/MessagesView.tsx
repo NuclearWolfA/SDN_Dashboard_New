@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { Send, MessageSquare, User, CheckCheck, Check, Clock, Signal } from 'lucide-react';
+import { Send, MessageSquare, User, CheckCheck, Check, Clock, Signal, Circle, Radio } from 'lucide-react';
 import { useNodesContext } from '@/contexts/NodesContext';
 import { useMessagesContext } from '@/contexts/MessagesContext';
 import { Message } from '@/types/message';
@@ -61,10 +61,14 @@ export default function MessagesView() {
       }
     });
 
-    // Add messages to conversations
+    // Add messages to conversations (skip broadcast messages here)
     messages.forEach(message => {
       // Skip messages with null IDs
       if (!message.source_id || !message.destination_id) return;
+      
+      // Skip broadcast messages (destination 0xffffffff)
+      const normalizedDest = normalizeId(message.destination_id);
+      if (normalizedDest.slice(-8) === 'ffffffff') return;
       
       const otherNodeId = message.sent_by_me ? message.destination_id : message.source_id;
       
@@ -73,18 +77,30 @@ export default function MessagesView() {
       
       const normalizedOtherId = normalizeId(otherNodeId);
 
-      if (!conversationMap.has(normalizedOtherId)) {
-        // Node not in list (maybe deleted/new/offline), skip it
-        return;
-      } else {
-        const conv = conversationMap.get(normalizedOtherId)!;
-        conv.messages.push(message);
-        
-        // Update last message if this one is newer
-        if (!conv.lastMessage || 
-            new Date(message.timestamp) > new Date(conv.lastMessage.timestamp)) {
-          conv.lastMessage = message;
+      // Find conversation by matching last 7 characters (handles format differences)
+      let targetConv = conversationMap.get(normalizedOtherId);
+      if (!targetConv) {
+        // Try matching by last 7 chars if exact match failed
+        for (const [key, conv] of conversationMap.entries()) {
+          if (key.slice(-7) === normalizedOtherId.slice(-7)) {
+            targetConv = conv;
+            break;
+          }
         }
+      }
+
+      // Only add message if the other node is in the active nodes list
+      if (!targetConv) {
+        // Node not in active list, skip this message
+        return;
+      }
+      
+      targetConv.messages.push(message);
+      
+      // Update last message if this one is newer
+      if (!targetConv.lastMessage || 
+          new Date(message.timestamp) > new Date(targetConv.lastMessage.timestamp)) {
+        targetConv.lastMessage = message;
       }
     });
 
@@ -99,16 +115,33 @@ export default function MessagesView() {
       });
   }, [messages, nodes, selfNodeId]);
 
+  // Get broadcast messages (destination 0xffffffff)
+  const broadcastMessages = useMemo(() => {
+    return messages
+      .filter(msg => {
+        const normalizedDest = normalizeId(msg.destination_id);
+        return normalizedDest.slice(-8) === 'ffffffff';
+      })
+      .sort((a, b) => 
+        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+      );
+  }, [messages]);
+
   // Get messages for selected conversation
   const currentMessages = useMemo(() => {
     if (!selectedNodeId) return [];
+    
+    // Special case: broadcast messages
+    if (selectedNodeId === 'broadcast') {
+      return broadcastMessages;
+    }
     
     const normalizedSelectedId = normalizeId(selectedNodeId);
     const conversation = conversations.find(c => normalizeId(c.nodeId) === normalizedSelectedId);
     return conversation?.messages.sort((a, b) => 
       new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
     ) || [];
-  }, [selectedNodeId, conversations]);
+  }, [selectedNodeId, conversations, broadcastMessages]);
 
   // Auto-select first conversation
   useEffect(() => {
@@ -122,9 +155,12 @@ export default function MessagesView() {
 
     try {
       setSending(true);
-      // Backend expects format like "6c7428d0" (no 0x prefix)
-      const cleanId = selectedNodeId.replace(/^0x/, '');
-      await sendMessage(cleanId, messageText.trim());
+      // Handle broadcast address
+      const destinationId = selectedNodeId === 'broadcast' 
+        ? 'ffffffff' // Broadcast address
+        : selectedNodeId.replace(/^0x/, ''); // Backend expects format like "6c7428d0" (no 0x prefix)
+      
+      await sendMessage(destinationId, messageText.trim());
       setMessageText('');
     } catch (err) {
       console.error('Failed to send message:', err);
@@ -165,16 +201,19 @@ export default function MessagesView() {
     return date.toLocaleDateString();
   };
 
-  const getAckStatusIcon = (ackStatus: number, sentByMe: boolean) => {
+  const getAckStatusIcon = (ackStatus: number | string, sentByMe: boolean) => {
     if (!sentByMe) return null;
+    
+    // Handle string "pending" or numeric status
+    if (ackStatus === "pending" || ackStatus === 0) {
+      return <Check className="h-3 w-3 text-muted-foreground" />; // Pending = Single check
+    }
     
     switch (ackStatus) {
       case 1: // ACKED (Delivered)
-        return <CheckCheck className="h-3 w-3 text-blue-500" />;
-      case 0: // Pending/Sent
-        return <Check className="h-3 w-3 text-muted-foreground" />;
-      case -1: // NAKED (Failed/Error)
-        return <Check className="h-3 w-3 text-red-500" />;
+        return <CheckCheck className="h-3 w-3 text-blue-500" />; // Acked = Double check
+      case -1: // NACKED (Failed/Error)
+        return <Circle className="h-3 w-3 text-red-500" />; // Nacked = Circle
       default: // Unknown
         return <Clock className="h-3 w-3 text-muted-foreground" />;
     }
@@ -209,45 +248,79 @@ export default function MessagesView() {
             <div className="p-4 text-center text-xs text-muted-foreground">
               Loading conversations...
             </div>
-          ) : conversations.length === 0 ? (
-            <div className="p-4 text-center text-xs text-muted-foreground">
-              No nodes available
-            </div>
           ) : (
-            conversations.map(conv => (
-              <div
-                key={conv.nodeId}
-                onClick={() => setSelectedNodeId(conv.nodeId)}
-                className={`p-3 border-b border-border cursor-pointer transition-colors hover:bg-accent/50 ${
-                  selectedNodeId === conv.nodeId ? 'bg-accent' : ''
-                }`}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <User className="h-4 w-4 text-primary flex-shrink-0" />
-                    <span className="text-xs font-semibold text-card-foreground truncate">
-                      {conv.nodeName}
-                    </span>
+            <>
+              {/* Broadcast Messages */}
+              {broadcastMessages.length > 0 && (
+                <div
+                  onClick={() => setSelectedNodeId('broadcast')}
+                  className={`p-3 border-b border-border cursor-pointer transition-colors hover:bg-accent/50 ${
+                    selectedNodeId === 'broadcast' ? 'bg-accent' : ''
+                  }`}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <Radio className="h-4 w-4 text-orange-500 flex-shrink-0" />
+                      <span className="text-xs font-semibold text-card-foreground truncate">
+                        Broadcast Messages
+                      </span>
+                    </div>
+                    {broadcastMessages.length > 0 && (
+                      <span className="text-[10px] text-muted-foreground ml-2 flex-shrink-0">
+                        {formatLastMessageTime(broadcastMessages[broadcastMessages.length - 1].timestamp)}
+                      </span>
+                    )}
                   </div>
-                  {conv.lastMessage && (
-                    <span className="text-[10px] text-muted-foreground ml-2 flex-shrink-0">
-                      {formatLastMessageTime(conv.lastMessage.timestamp)}
-                    </span>
+                  {broadcastMessages.length > 0 && (
+                    <div className="mt-1 text-[11px] text-muted-foreground truncate ml-6">
+                      {broadcastMessages[broadcastMessages.length - 1].text}
+                    </div>
                   )}
                 </div>
-                {conv.lastMessage && (
-                  <div className="mt-1 text-[11px] text-muted-foreground truncate ml-6">
-                    {conv.lastMessage.sent_by_me ? 'You: ' : ''}
-                    {conv.lastMessage.text}
+              )}
+
+              {/* Individual Conversations */}
+              {conversations.length === 0 && broadcastMessages.length === 0 ? (
+                <div className="p-4 text-center text-xs text-muted-foreground">
+                  No conversations available
+                </div>
+              ) : (
+                conversations.map(conv => (
+                  <div
+                    key={conv.nodeId}
+                    onClick={() => setSelectedNodeId(conv.nodeId)}
+                    className={`p-3 border-b border-border cursor-pointer transition-colors hover:bg-accent/50 ${
+                      selectedNodeId === conv.nodeId ? 'bg-accent' : ''
+                    }`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <User className="h-4 w-4 text-primary flex-shrink-0" />
+                        <span className="text-xs font-semibold text-card-foreground truncate">
+                          {conv.nodeName}
+                        </span>
+                      </div>
+                      {conv.lastMessage && (
+                        <span className="text-[10px] text-muted-foreground ml-2 flex-shrink-0">
+                          {formatLastMessageTime(conv.lastMessage.timestamp)}
+                        </span>
+                      )}
+                    </div>
+                    {conv.lastMessage && (
+                      <div className="mt-1 text-[11px] text-muted-foreground truncate ml-6">
+                        {conv.lastMessage.sent_by_me ? 'You: ' : ''}
+                        {conv.lastMessage.text}
+                      </div>
+                    )}
+                    {!conv.lastMessage && (
+                      <div className="mt-1 text-[11px] text-muted-foreground/50 italic ml-6">
+                        No messages yet
+                      </div>
+                    )}
                   </div>
-                )}
-                {!conv.lastMessage && (
-                  <div className="mt-1 text-[11px] text-muted-foreground/50 italic ml-6">
-                    No messages yet
-                  </div>
-                )}
-              </div>
-            ))
+                ))
+              )}
+            </>
           )}
         </div>
       </div>
@@ -259,13 +332,17 @@ export default function MessagesView() {
             {/* Chat Header */}
             <div className="p-3 border-b border-border">
               <div className="flex items-center gap-2">
-                <User className="h-4 w-4 text-primary" />
+                {selectedNodeId === 'broadcast' ? (
+                  <Radio className="h-4 w-4 text-orange-500" />
+                ) : (
+                  <User className="h-4 w-4 text-primary" />
+                )}
                 <div className="flex-1">
                   <div className="text-sm font-semibold text-card-foreground">
-                    {selectedNode?.name || selectedNodeId}
+                    {selectedNodeId === 'broadcast' ? 'Broadcast Messages' : (selectedNode?.name || selectedNodeId)}
                   </div>
                   <div className="text-[10px] text-muted-foreground">
-                    Node ID: {selectedNodeId}
+                    {selectedNodeId === 'broadcast' ? 'All network broadcasts' : `Node ID: ${selectedNodeId}`}
                   </div>
                 </div>
               </div>
@@ -278,40 +355,58 @@ export default function MessagesView() {
                   No messages yet. Start a conversation!
                 </div>
               ) : (
-                currentMessages.map((msg) => (
-                  <div
-                    key={msg.mes_id}
-                    className={`flex ${msg.sent_by_me ? 'justify-end' : 'justify-start'}`}
-                  >
+                currentMessages.map((msg) => {
+                  // For broadcast, find the sender's name
+                  const senderNode = selectedNodeId === 'broadcast' 
+                    ? nodes.find(n => {
+                        const normalizedNodeId = normalizeId(n.id);
+                        const normalizedSourceId = normalizeId(msg.source_id);
+                        return normalizedNodeId.slice(-7) === normalizedSourceId.slice(-7);
+                      })
+                    : null;
+                  
+                  return (
                     <div
-                      className={`max-w-[70%] rounded-lg px-3 py-2 ${
-                        msg.sent_by_me
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-accent text-accent-foreground'
-                      }`}
+                      key={msg.mes_id}
+                      className={`flex ${msg.sent_by_me ? 'justify-end' : 'justify-start'}`}
                     >
-                      <div className="text-sm break-words">{msg.text}</div>
-                      
-                      {/* Message metadata */}
-                      <div className="flex items-center gap-2 mt-1 text-[10px] opacity-70">
-                        <span>{formatTime(msg.timestamp)}</span>
-                        
-                        {msg.rssi !== null && (
-                          <span className="flex items-center gap-0.5">
-                            <Signal className="h-2.5 w-2.5" />
-                            {msg.rssi}dBm
-                          </span>
+                      <div
+                        className={`max-w-[70%] rounded-lg px-3 py-2 ${
+                          msg.sent_by_me
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-accent text-accent-foreground'
+                        }`}
+                      >
+                        {/* Show sender name for broadcast messages */}
+                        {selectedNodeId === 'broadcast' && !msg.sent_by_me && senderNode && (
+                          <div className="text-[10px] font-semibold mb-1 opacity-70">
+                            {senderNode.name || senderNode.id}
+                          </div>
                         )}
                         
-                        {msg.channel !== null && (
-                          <span>Ch{msg.channel}</span>
-                        )}
+                        <div className="text-sm break-words">{msg.text}</div>
                         
-                        {getAckStatusIcon(msg.ack_status, msg.sent_by_me)}
+                        {/* Message metadata */}
+                        <div className="flex items-center gap-2 mt-1 text-[10px] opacity-70">
+                          <span>{formatTime(msg.timestamp)}</span>
+                          
+                          {msg.rssi !== null && (
+                            <span className="flex items-center gap-0.5">
+                              <Signal className="h-2.5 w-2.5" />
+                              {msg.rssi}dBm
+                            </span>
+                          )}
+                          
+                          {msg.channel !== null && (
+                            <span>Ch{msg.channel}</span>
+                          )}
+                          
+                          {getAckStatusIcon(msg.ack_status, msg.sent_by_me)}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
               <div ref={messagesEndRef} />
             </div>
@@ -329,7 +424,7 @@ export default function MessagesView() {
                   value={messageText}
                   onChange={(e) => setMessageText(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  placeholder="Type a message..."
+                  placeholder={selectedNodeId === 'broadcast' ? 'Broadcast to all nodes...' : 'Type a message...'}
                   disabled={sending}
                   className="flex-1 px-3 py-2 text-sm rounded-lg border border-border bg-background text-card-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
                 />
