@@ -2,18 +2,18 @@ from pydantic import BaseModel, Field
 
 
 class RouteInstallRequest(BaseModel):
-    destination: int = Field(..., description="Destination node number (int)")
-    path: list[int] = Field(..., description="Hop list, each 0..255, max 8")
+    destination: str | int = Field(..., description="Destination node ID as hex, e.g. a1b2c3d4 or 0xa1b2c3d4")
+    path: list[str | int] = Field(..., description="Hop list of 1-byte node IDs as hex, e.g. [01, 0a, ff], max 8")
     install_id: int = Field(1, ge=0, le=255)
-    start_node: int | None = Field(None, description="If omitted, first hop in path is used")
+    start_node: str | int | None = Field(None, description="Start node ID as 4-byte hex, e.g. a1b2c3d4")
     channel_index: int = Field(0, ge=0)
     want_ack: bool = False
 
 
 class RouteSwitchRequest(BaseModel):
-    target_node: int = Field(..., description="Node that applies route switch")
-    destination: int = Field(..., description="Destination node number (int)")
-    next_hop: int = Field(..., ge=0, le=255)
+    target_node: str | int = Field(..., description="Node ID that applies route switch as hex, e.g. a1b2c3d4")
+    destination: str | int = Field(..., description="Destination node ID as hex, e.g. a1b2c3d4")
+    next_hop: str | int = Field(..., description="Next hop as hex, e.g. 1f or 0x1f")
     channel_index: int = Field(0, ge=0)
     want_ack: bool = False
 

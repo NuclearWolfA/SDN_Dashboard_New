@@ -8,8 +8,8 @@ class RouteTableRequest(BaseModel):
 
 
 class RouteEntry(BaseModel):
-    destination: int
-    next_hop: int
+    destination: str
+    next_hop: str
     hop_count: int
     destination_seq_num: int
     lifetime: int
@@ -19,5 +19,5 @@ class RouteEntry(BaseModel):
 class RouteTableResponse(BaseModel):
     status: str
     request_id: int
-    node_num: int
+    node_num: str
     routes: list[RouteEntry]

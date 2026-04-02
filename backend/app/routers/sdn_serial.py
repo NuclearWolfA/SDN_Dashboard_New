@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Request
 from starlette.concurrency import run_in_threadpool
 
-from backend.app.request_models.sdn_serial_models import (
+from app.request_models.sdn_serial_models import (
     RouteInstallRequest,
     RouteSwitchRequest,
     GenericSendResponse,

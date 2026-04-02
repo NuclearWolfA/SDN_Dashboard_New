@@ -5,6 +5,8 @@ from pathlib import Path
 from pubsub import pub
 from meshtastic.serial_interface import SerialInterface
 
+from app.services.node_id_utils import format_hex_node_id
+
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 LOCAL_MESHTASTIC_DIR = PROJECT_ROOT / "meshtastic"
 
@@ -45,8 +47,8 @@ def get_route_table_serial(
                 if rt.request_id == request_id:
                     result_routes = [
                         {
-                            "destination": r.destination,
-                            "next_hop": r.next_hop,
+                            "destination": format_hex_node_id(r.destination),
+                            "next_hop": format_hex_node_id(r.next_hop),
                             "hop_count": r.hop_count,
                             "destination_seq_num": r.destination_seq_num,
                             "lifetime": r.lifetime,
@@ -91,7 +93,7 @@ def get_route_table_serial(
         return {
             "status": "ok",
             "request_id": request_id,
-            "node_num": node_num,
+            "node_num": format_hex_node_id(node_num),
             "routes": result_routes or [],
         }
     finally:
