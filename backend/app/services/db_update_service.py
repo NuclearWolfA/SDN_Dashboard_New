@@ -27,7 +27,7 @@ def update_nodes_db(iface):
             
             last_heard = node_data.get('lastHeard')
             uptimeSeconds = device_metrics.get('uptimeSeconds')
-            print(f"[Debug]{node_id}: lastHeard={last_heard}, uptimeSeconds={uptimeSeconds}, userInfo={user_info}, deviceMetrics={device_metrics}, position={position_info}")
+            #print(f"[Debug]{node_id}: lastHeard={last_heard}, uptimeSeconds={uptimeSeconds}, userInfo={user_info}, deviceMetrics={device_metrics}, position={position_info}")
             status = 'online' if last_heard or uptimeSeconds else 'offline'
             
             node_changed = False
