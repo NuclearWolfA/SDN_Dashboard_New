@@ -93,7 +93,7 @@ export function useMessages(shouldConnect: boolean = false): UseMessagesReturn {
             conversation: rawMessage.conversation,
             sent_by_me: rawMessage.sent_by_me || false,
             ack_status: typeof rawMessage.ack_status === 'string'
-              ? (rawMessage.ack_status === 'ACKED' ? 1 : rawMessage.ack_status === 'NAKED' ? -1 : 0)
+              ? (rawMessage.ack_status === 'ACKED' ? 1 : rawMessage.ack_status === 'NAKED' ? -1 : rawMessage.ack_status === 'pending' ? 'pending' : 0)
               : (rawMessage.ack_status || 0),
             ack_timestamp: rawMessage.ack_timestamp 
               ? (typeof rawMessage.ack_timestamp === 'number' 
@@ -109,13 +109,28 @@ export function useMessages(shouldConnect: boolean = false): UseMessagesReturn {
             );
             
             if (existingIndex !== -1) {
-              // Update existing message (ACK status change or filling in source_id)
+              // Update existing message (ACK status change)
               const updated = [...prev];
               updated[existingIndex] = message;
               return updated;
             } else {
-              // Add new message
-              return [...prev, message];
+              // Check if there's an optimistic message with same text/destination that should be replaced
+              const optimisticIndex = prev.findIndex(
+                m => m.sent_by_me && 
+                     m.text === message.text && 
+                     m.destination_id === message.destination_id &&
+                     m.mes_id > Date.now() - 10000 // Optimistic IDs are recent timestamps
+              );
+              
+              if (optimisticIndex !== -1) {
+                // Replace optimistic message with real one
+                const updated = [...prev];
+                updated[optimisticIndex] = message;
+                return updated;
+              } else {
+                // Add new message
+                return [...prev, message];
+              }
             }
           });
         } catch (err) {
