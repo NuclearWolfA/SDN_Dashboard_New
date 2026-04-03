@@ -70,6 +70,18 @@ export default function MessagesView() {
       const normalizedDest = normalizeId(message.destination_id);
       if (normalizedDest.slice(-8) === 'ffffffff') return;
       
+      // Filter: Only show messages where current node is source OR destination
+      const normalizedSource = normalizeId(message.source_id);
+      if (normalizedSelfId) {
+        const isSelfSource = normalizedSource.slice(-7) === normalizedSelfId.slice(-7);
+        const isSelfDest = normalizedDest.slice(-7) === normalizedSelfId.slice(-7);
+        
+        // Skip message if current node is neither source nor destination
+        if (!isSelfSource && !isSelfDest) {
+          return;
+        }
+      }
+      
       const otherNodeId = message.sent_by_me ? message.destination_id : message.source_id;
       
       // Skip if null

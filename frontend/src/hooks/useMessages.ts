@@ -104,34 +104,36 @@ export function useMessages(shouldConnect: boolean = false): UseMessagesReturn {
           
           // Check if this message already exists (for ACK updates)
           setMessages(prev => {
+            // First check for exact mes_id match (for ACK status updates on existing messages)
             const existingIndex = prev.findIndex(
-              m => m.mes_id === message.mes_id
+              m => String(m.mes_id) === String(message.mes_id) && 
+                   m.source_id === message.source_id
             );
             
             if (existingIndex !== -1) {
-              // Update existing message (ACK status change)
+              // Update existing message (ACK status change or any other update)
               const updated = [...prev];
-              updated[existingIndex] = message;
+              updated[existingIndex] = { ...updated[existingIndex], ...message };
               return updated;
-            } else {
-              // Check if there's an optimistic message with same text/destination that should be replaced
-              const optimisticIndex = prev.findIndex(
-                m => m.sent_by_me && 
-                     m.text === message.text && 
-                     m.destination_id === message.destination_id &&
-                     m.mes_id > Date.now() - 10000 // Optimistic IDs are recent timestamps
-              );
-              
-              if (optimisticIndex !== -1) {
-                // Replace optimistic message with real one
-                const updated = [...prev];
-                updated[optimisticIndex] = message;
-                return updated;
-              } else {
-                // Add new message
-                return [...prev, message];
-              }
             }
+            
+            // Check if there's an optimistic message with same text/destination that should be replaced
+            const optimisticIndex = prev.findIndex(
+              m => m.sent_by_me && 
+                   m.text === message.text && 
+                   m.destination_id === message.destination_id &&
+                   m.mes_id > Date.now() - 10000 // Optimistic IDs are recent timestamps
+            );
+            
+            if (optimisticIndex !== -1) {
+              // Replace optimistic message with real one
+              const updated = [...prev];
+              updated[optimisticIndex] = message;
+              return updated;
+            }
+            
+            // Add new message
+            return [...prev, message];
           });
         } catch (err) {
           console.error('Error parsing WebSocket message:', err);
