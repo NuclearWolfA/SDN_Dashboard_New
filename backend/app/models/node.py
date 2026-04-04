@@ -15,6 +15,7 @@ class Node(Base):
     battery_level = Column(Integer)
     status = Column(String)
     role = Column(String)  # e.g., "rescue", "volunteer", "unknown"
+    last_heard = Column(Integer)  # Timestamp of last heard time
 
 @event.listens_for(Node.id, 'set', retval=True)
 def update_last_byte(target, value, oldvalue, initiator):

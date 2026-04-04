@@ -1,7 +1,7 @@
 import meshtastic
 import meshtastic.serial_interface
 from pubsub import pub
-from app.services.db_update_service import update_nodes_db,update_message_db, get_messages_by_req_id_and_source
+from app.services.db_update_service import set_last_heard_now, update_nodes_db,update_message_db, get_messages_by_req_id_and_source
 import asyncio
 import os
 import serial.tools.list_ports
@@ -57,6 +57,7 @@ def on_receive(packet, interface):
             elif sdn_msg.HasField("route_update"):
                 print("  Type: Route Update")
                 print(f"  Reporter: {hex(packet.get('from'))}")
+                set_last_heard_now(packet.get("from"))  # Update last heard timestamp for reporting node in database
                 ru = sdn_msg.route_update
                 reporter = hex(packet.get('from'))
                 destination = hex(ru.destination) if isinstance(ru.destination, int) else ru.destination.hex()
@@ -101,6 +102,7 @@ def on_receive(packet, interface):
             elif sdn_msg.HasField("link_quality"):
                 print("  Type: Link Quality Report")
                 print(f"  Reporter: {hex(packet.get('from'))}")
+                set_last_heard_now(packet.get("from"))  # Update last heard timestamp for reporting node in database
                 lq = sdn_msg.link_quality
                 print(f"  Relay Nodes: {[hex(n) for n in lq.relay_node]}")
                 print(f"  RX Good: {list(lq.rx_good)}")
@@ -144,7 +146,7 @@ def on_receive(packet, interface):
         # Convert integers to bytes for database (4 bytes, big-endian)
         source_bytes = source_int.to_bytes(4, byteorder='big')
         destination_bytes = destination_int.to_bytes(4, byteorder='big')
-
+        set_last_heard_now(source_bytes)  # Update last heard timestamp for source node in database
         # Convert to hex strings for display/conversation IDs
         source_hex = hex(source_int)
         destination_hex = hex(destination_int)
@@ -191,7 +193,7 @@ def on_receive(packet, interface):
         publish_text_to_websocket(interface.app, message_ws)
     
     elif decoded.get("portnum") == "TELEMETRY_APP":
-        #print(f"Received telemetry packet: {decoded}")
+        print(f"Received telemetry packet: {decoded}")
         changed_nodes = update_nodes_db(interface)
         if (len(changed_nodes) > 0):
             for node in changed_nodes:

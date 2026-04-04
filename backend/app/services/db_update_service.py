@@ -2,8 +2,8 @@
 from app.core.database import SessionLocal
 from app.models.node import Node
 from app.models.message import Message
-
-
+from app.services.node_id_utils import parse_hex_node_id
+import time
 def update_nodes_db(iface):
     """Function to fetch all nodes from the Meshtastic network and update the database"""
     nodes = iface.nodes
@@ -25,18 +25,29 @@ def update_nodes_db(iface):
                 alt = position_info.get('altitude', 0)
                 gps_coords = f"{lat},{lon},{alt}"
             
-            last_heard = node_data.get('lastHeard')
+            # last_heard = node_data.get('lastHeard')
             uptimeSeconds = device_metrics.get('uptimeSeconds')
             #print(f"[Debug]{node_id}: lastHeard={last_heard}, uptimeSeconds={uptimeSeconds}, userInfo={user_info}, deviceMetrics={device_metrics}, position={position_info}")
-            status = 'online' if last_heard or uptimeSeconds else 'offline'
-            
+            # status = 'online' if  uptimeSeconds else 'offline'
+            ts = int(time.time())
+            # if last_heard is not None and ts - last_heard > 300:  # If last heard is more than 5 minutes ago, consider offline
+            #         status = 'offline'
+            if uptimeSeconds is not None:
+                    status = 'online' if uptimeSeconds > 0 else 'offline'
+            elif existing_node.last_heard is not None:
+                if time.time() - existing_node.last_heard > 300:  # If last heard is more than 5 minutes ago, consider offline
+                    status = 'offline'
+                else:
+                    status = 'online'
+            else:
+                status = 'offline'  # Default to offline if we have no information
             node_changed = False
             if existing_node:
                 # Check for changes before updating
                 if (existing_node.long_name != user_info.get('longName') or
                     existing_node.battery_level != device_metrics.get('batteryLevel') or
                     existing_node.status != status or
-                    existing_node.snr != node_data.get('snr')):
+                    existing_node.snr != node_data.get('snr') ):
                     node_changed = True
                 
                 existing_node.long_name = user_info.get('longName')
@@ -46,6 +57,7 @@ def update_nodes_db(iface):
                 existing_node.battery_level = device_metrics.get('batteryLevel')
                 existing_node.status = status
                 existing_node.hops_away = node_data.get('hopsAway')
+                # existing_node.last_heard = last_heard
                 if gps_coords:
                     existing_node.gps_coordinates = gps_coords
                 node = existing_node
@@ -61,7 +73,7 @@ def update_nodes_db(iface):
                     battery_level=device_metrics.get('batteryLevel'),
                     status=status,
                     hops_away=node_data.get('hopsAway'),
-                    gps_coordinates=gps_coords
+                    gps_coordinates=gps_coords,
                 )
                 db.add(new_node)
                 node = new_node
@@ -75,7 +87,7 @@ def update_nodes_db(iface):
                     "hw_model": node.hw_model,
                     "snr": node.snr,
                     "battery_level": node.battery_level,
-                    "status": 'online',
+                    "status": node.status,
                     "hops_away": node.hops_away,
                     "gps_coordinates": node.gps_coordinates,
                     "role": node.role
@@ -178,5 +190,37 @@ def get_messages_by_conversation(conversation):
     except Exception as e:
         print(f"Error retrieving messages by conversation: {e}")
         return []
+    finally:
+        db.close()
+
+def set_last_heard_now(node_id):
+    """Function to set the last_heard timestamp to now for a given node ID"""
+    db = SessionLocal()
+    print(f"Setting last_heard to now for node {node_id}")
+    try:
+        if isinstance(node_id, bytes):
+            node_id_bytes = node_id
+        elif isinstance(node_id, int):
+            node_id_bytes = node_id.to_bytes(4, byteorder='big', signed=False)
+        elif isinstance(node_id, str):
+            parsed_node_id = parse_hex_node_id(node_id, field_name="node_id")
+            node_id_bytes = parsed_node_id.to_bytes(4, byteorder='big', signed=False)
+        else:
+            raise ValueError(f"Unsupported node_id type: {type(node_id)}")
+
+        if len(node_id_bytes) != 4:
+            raise ValueError(f"node_id must be 4 bytes, got {len(node_id_bytes)}")
+
+        node = db.query(Node).filter(Node.id == node_id_bytes).first()
+        if node:
+            node.last_heard = int(time.time())
+            print(f"Node {node_id} found in database, updating last_heard to {node.last_heard}")
+            db.commit()
+            print(f"Updated last_heard for node {node_id} to now")
+        else:
+            print(f"Node {node_id} not found in database")
+    except Exception as e:
+        db.rollback()
+        print(f"Error updating last_heard: {e}")
     finally:
         db.close() 
