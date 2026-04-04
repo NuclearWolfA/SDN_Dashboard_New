@@ -118,4 +118,5 @@ def start_client(devPath: Optional[str] = None, app: FastAPI = Depends(get_app))
             "port": devPath
         }
     except ValueError as e:
+        print(f"ValueError: {e}")
         return {"status": "error", "message": str(e)}
